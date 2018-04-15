@@ -1,4 +1,6 @@
-# Флукс
+<p align="center">
+<img width="200px" src="https://raw.githubusercontent.com/FluxML/fluxml.github.io/master/flux.png"/>
+</p>
 
 [![Build Status](https://travis-ci.org/FluxML/Flux.jl.svg?branch=master)](https://travis-ci.org/FluxML/Flux.jl) [![](https://img.shields.io/badge/docs-stable-blue.svg)](https://fluxml.github.io/Flux.jl/stable/) [![](https://img.shields.io/badge/chat-on%20slack-yellow.svg)](https://slackinvite.julialang.org/)
 
@@ -36,7 +38,7 @@ b = param(randn(2))
 y(x) = σ.(W * x .+ b)
 ```
 
-If that's *still* not enough, you can go as deep as you want, even writing your own CUDA kernels! All this can be freely mixed-and-matched in a single model or script, and it all runs interactively via Jupyter or Juno.
+If that's *still* not enough, you can go as deep as you want, even writing your own CUDA kernels with [CUDAnative](https://github.com/JuliaGPU/CUDAnative.jl)! All this can be freely mixed-and-matched in a single model or script, and it all runs interactively via Jupyter or Juno.
 
 ```julia
 function gpu_add(a, b, c)
