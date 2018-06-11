@@ -1,6 +1,7 @@
 using CuArrays.CUDNN: @check, libcudnn, cudnnStatus_t, cudnnTensorDescriptor_t,
   cudnnBatchNormMode_t, cudnnHandle_t, libcudnn_handle, cudnnDataType, TensorDesc, FilterDesc
-
+using CuArrays
+using Flux
 mutable struct DropoutDesc
   ptr::Ptr{Void}
   states::CuVector{UInt8}
@@ -156,13 +157,15 @@ function cudnnBatchNormalizationForwardTraining!(handle,mode,alpha,beta,xDesc,x,
   resultRunningMean,resultRunningVariance,epsilon,resultSaveMean,
   resultSaveInvVariance)
 
+  T = eltype(x)
+
   @check ccall((:cudnnBatchNormalizationForwardTraining, libcudnn), cudnnStatus_t,
-  (cudnnHandle_t,UInt32,Ptr{T}, Ptr{T},
-   Ptr{Void},Ptr{T},Ptr{Void},Ptr{T},
-   Ptr{Void},Ptr{T},Ptr{T},
-   Cdouble,Ptr{T},Ptr{T},
-   Cdouble,Ptr{T},Ptr{T}),
-   handle,mode,Ref(T(alpha)),Ref(T(beta)),xDesc,x,yDesc,y,
+  (cudnnHandle_t,UInt32,Ptr{Void}, Ptr{Void},
+   Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Void},
+   Ptr{Void},Ptr{Void},Ptr{Void},
+   Cdouble,Ptr{Void},Ptr{Void},
+   Cdouble,Ptr{Void},Ptr{Void}),
+   handle,UInt32(mode),Ref(T(alpha)),Ref(T(beta)),xDesc,x,yDesc,y,
    bnScaleBiasMeanVarDesc,bnScale,bnBias,exponentialAverageFactor,
    resultRunningMean,resultRunningVariance,epsilon,resultSaveMean,
    resultSaveInvVariance)
@@ -170,37 +173,45 @@ end
 
 CuParam{T,N} = Union{CuArray{T,N},TrackedArray{T,N,CuArray{T,N}}}
 CuBatchNorm{T} = Flux.BatchNorm{<:Union{typeof(identity),typeof(relu)},
-                                <:CuParam{T,1},<:CuParam{T,1},<:CuArray{T,1},
+                                <:CuParam{T,1},<:CuArray{T,1},
                                 <:Union{Float32,Float64}}
 
+CuBatchNorm(chs::Integer, λ = identity;
+			          initβ = zeros, initγ = ones, ϵ = 1e-8, momentum = .1) =
+  BatchNorm(λ, param(cu(initβ(Float32,chs))), param(cu(initγ(Float32,chs))),
+	                   zeros(Float32,chs), ones(Float32,chs), ϵ, momentum, true)
 function (CuBN::CuBatchNorm{T})(x::CuArray{T,4};handle=libcudnn_handle[],
                                 alpha=1, beta=0,exponentialAverageFactor=T(1),
                                 mode=CUDNN_BATCHNORM_SPATIAL,
                                 ϵ=CUDNN_BN_MIN_EPSILON) where T
 
-  y = similar(x, eltype)
+  y = similar(x)
   xDesc = TensorDesc(x)
   yDesc = TensorDesc(y)
   bnScaleBiasMeanVarDesc = TensorDesc(CuBN.γ)
   resultSaveMean = similar(CuBN.γ)
   resultSaveInvVariance = similar(CuBN.γ)
 
-  cudnnBatchNormalizationForwardTraining!(
+  @time cudnnBatchNormalizationForwardTraining!(
   handle,mode,alpha,beta,xDesc,x,yDesc,y,bnScaleBiasMeanVarDesc,CuBN.γ, CuBN.β,
   exponentialAverageFactor,CuBN.μ,CuBN.σ,ϵ,
   s.resultSaveMean.ptr, s.resultSaveInvVariance.ptr)
 
   return y
 end
-
+#=
 function batchnorm_train(x::CuArray{T,4}, s::BatchNormState; opts...) where T
   y = similar(x)
   batchnorm_train!(y, x, s;  opts...)
   return y
 end
-
-a = CuBatchNorm(10)
-
+=#
+b = Conv((5,5),4=>5)
+a = Chain(b|>gpu, CuBatchNorm(5))
+inp = randn(10,10,4,1)
+cuinp = cu(inp)
+@time println(a(cuinp))
+@time println(BatchNorm(5)(b(inp)))
 #batchnorm(cu(randn(10,5)))
 
 TensorDesc(Float32, (1,5,1,1))
