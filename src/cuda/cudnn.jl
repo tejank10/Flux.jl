@@ -1,5 +1,5 @@
-using CuArrays.CUDNN: @check, libcudnn, cudnnStatus_t, libcudnn_handle,
-  cudnnDataType, TensorDesc, FilterDesc
+using CuArrays.CUDNN: @check, libcudnn, cudnnStatus_t, cudnnTensorDescriptor_t,
+  cudnnBatchNormMode_t, cudnnHandle_t, libcudnn_handle, cudnnDataType, TensorDesc, FilterDesc
 
 mutable struct DropoutDesc
   ptr::Ptr{Void}
@@ -35,16 +35,16 @@ function batchnorm(x::CuArray{T}) where T<:Union{Float32,Float64}
   sh = bnshape(x)
   td_x = TensorDesc(T, sh)
   td_p = TensorDesc(T, (1,1,sh[3],1))
-   @check ccall((:cudnnBatchNormalizationForwardTraining,libcudnn),cudnnStatus_t,
-     (Ptr{Void}, UInt32,
-      Ptr{T}, Ptr{T}, #alpha and beta
-      Ptr{Void}, Ptr{T}, #xdesc and x
-      Ptr{Void}, Ptr{T}, #ydesc and y
-      Ptr{Void}, Ptr{T}, Ptr{T}, #desc, weight and bias
-      Cdouble, Ptr{T}, Ptr{T}, #Decay factor, Running mean and Running var
-      Cdouble, # eps
-      Ptr{T}, Ptr{T}), #Cached mean and ivar
-     libcudnn_handle[], BATCHNORM_SPATIAL,
+  # @check ccall((:cudnnBatchNormalizationForwardTraining,libcudnn),cudnnStatus_t,
+    # (Ptr{Void}, UInt32,
+     # Ptr{T}, Ptr{T}, #alpha and beta
+     # Ptr{Void}, Ptr{T}, #xdesc and x
+     # Ptr{Void}, Ptr{T}, #ydesc and y
+     # Ptr{Void}, Ptr{T}, Ptr{T}, #desc, weight and bias
+    #  Cdouble, Ptr{T}, Ptr{T}, #Decay factor, Running mean and Running var
+    # Cdouble, # eps
+    # Ptr{T}, Ptr{T}), #Cached mean and ivar
+     cudnnBatchNormalizationForwardTraining(libcudnn_handle[], BATCHNORM_SPATIAL,
      Ref(T(1)), Ref(T(0)),
      TensorDesc(x), x, #x
      TensorDesc(y), y, #y
@@ -91,11 +91,12 @@ function cudnnBatchNormalizationBackward(handle,mode,alphaDataDiff,betaDataDiff,
   bnScale,resultBnScaleDiff,resultBnBiasDiff,epsilon,savedMean,savedInvVariance)
   
   @check ccall((:cudnnBatchNormalizationBackward, libcudnn),cudnnStatus_t,
-    (cudnnHandle_t,cudnnBatchNormMode_t,Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Void}
+    (cudnnHandle_t,cudnnBatchNormMode_t,Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Void},
      cudnnTensorDescriptor_t,Ptr{Void},cudnnTensorDescriptor_t,Ptr{Void},
-     cudnnTensorDescriptor_t,Ptr{Void},Ptr{Void},Ptr{Void},Cdouble,Ptr{Void},
-     Ptr{Void}),handle,mode,alphaDataDiff,betaDataDiff,alphaParamDiff,
-     betaParamDiff,xDesc,x,dyDesc,dy,dxDesc,dx,bnScaleBiasDiffDesc,bnScale,
+     cudnnTensorDescriptor_t,Ptr{Void},cudnnTensorDescriptor_t,Ptr{Void},
+     Ptr{Void},Ptr{Void},Cdouble,Ptr{Void},Ptr{Void}),
+     handle,mode,alphaDataDiff,betaDataDiff,alphaParamDiff,betaParamDiff,
+     xDesc,x,dyDesc,dy,dxDesc,dx,bnScaleBiasDiffDesc,bnScale,
      resultBnScaleDiff,resultBnBiasDiff,epsilon,savedMean,savedInvVariance)
 end
 
@@ -120,7 +121,7 @@ function cudnnBatchNormalizationForwardInference(handle,mode,alpha,beta,xDesc,x,
   bnScaleBiasMeanVarDesc,bnScale,bnBias,exponentialAverageFactor,
   estimatedMean,estimatedVariance,epsilon)
 
-  @check ccall((:cudnnBatchNormalizationForwardInference, libcudnn), cudnnStatus_t
+  @check ccall((:cudnnBatchNormalizationForwardInference, libcudnn), cudnnStatus_t,
   (cudnnHandle_t,cudnnBatchNormMode_t,Ptr{Void}, Ptr{Void},
    cudnnTensorDescriptor_t,Ptr{Void},cudnnTensorDescriptor_t,Ptr{Void},
    cudnnTensorDescriptor_t,Ptr{Void},Ptr{Void},Cdouble,Ptr{Void},Ptr{Void},
@@ -154,7 +155,7 @@ function cudnnBatchNormalizationForwardTraining(handle,mode,alpha,beta,xDesc,x,
   resultRunningMean,resultRunningVariance,epsilon,resultSaveMean,
   resultSaveInvVariance)
 
-  @check ccall((:cudnnBatchNormalizationForwardTraining, libcudnn), cudnnStatus_t
+  @check ccall((:cudnnBatchNormalizationForwardTraining, libcudnn), cudnnStatus_t,
   (cudnnHandle_t,cudnnBatchNormMode_t,Ptr{Void}, Ptr{Void},
    cudnnTensorDescriptor_t,Ptr{Void},cudnnTensorDescriptor_t,Ptr{Void},
    cudnnTensorDescriptor_t,Ptr{Void},Ptr{Void},Cdouble,Ptr{Void},Ptr{Void},
