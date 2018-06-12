@@ -191,11 +191,12 @@ function (CuBN::CuBatchNorm{T})(x::CuArray{T,4};handle=libcudnn_handle[],
   bnScaleBiasMeanVarDesc = TensorDesc(CuBN.γ)
   resultSaveMean = similar(CuBN.γ)
   resultSaveInvVariance = similar(CuBN.γ)
+  handle = handle(x)
 
-  @time cudnnBatchNormalizationForwardTraining!(
+  cudnnBatchNormalizationForwardTraining!(
   handle,mode,alpha,beta,xDesc,x,yDesc,y,bnScaleBiasMeanVarDesc,CuBN.γ, CuBN.β,
   exponentialAverageFactor,CuBN.μ,CuBN.σ,ϵ,
-  s.resultSaveMean.ptr, s.resultSaveInvVariance.ptr)
+  resultSaveMean, resultSaveInvVariance)
 
   return y
 end
@@ -206,12 +207,13 @@ function batchnorm_train(x::CuArray{T,4}, s::BatchNormState; opts...) where T
   return y
 end
 =#
-b = Conv((5,5),4=>5)
-a = Chain(b|>gpu, CuBatchNorm(5))
+a = CuBatchNorm(4)
+b = BatchNorm(4)
 inp = randn(10,10,4,1)
 cuinp = cu(inp)
-@time println(a(cuinp))
-@time println(BatchNorm(5)(b(inp)))
+@time a(cuinp) # 7.127122 seconds (2.52 M allocations: 130.674 MiB, 0.89% gc time)
+@time b(inp) # 1.908837 seconds (778.18 k allocations: 36.005 MiB, 0.48% gc time)
+
 #batchnorm(cu(randn(10,5)))
 
 TensorDesc(Float32, (1,5,1,1))
