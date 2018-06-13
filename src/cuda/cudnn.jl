@@ -1,7 +1,9 @@
 using CuArrays.CUDNN: @check, libcudnn, cudnnStatus_t, cudnnTensorDescriptor_t,
   cudnnBatchNormMode_t, cudnnHandle_t, libcudnn_handle, cudnnDataType, TensorDesc, FilterDesc
 using CuArrays
+using CUDAdrv:synchronize
 using Flux
+using BenchmarkTools
 mutable struct DropoutDesc
   ptr::Ptr{Void}
   states::CuVector{UInt8}
@@ -209,10 +211,24 @@ end
 =#
 a = CuBatchNorm(4)
 b = BatchNorm(4)
-inp = randn(10,10,4,1)
-cuinp = cu(inp)
-@time a(cuinp) # 7.127122 seconds (2.52 M allocations: 130.674 MiB, 0.89% gc time)
-@time b(inp) # 1.908837 seconds (778.18 k allocations: 36.005 MiB, 0.48% gc time)
+c = BatchNorm(4) |> gpu
+inp1 = rand(10,10,4,1)
+inp2 = rand(100,100,4,1)
+inp3 = rand(1000, 1000,4,1)
+cuinp1 = cu(inp1)
+cuinp2 = cu(inp2)
+cuinp3 = cu(inp3)
+@btime begin a(cuinp1); synchronize() end  # 7.127122 seconds (2.52 M allocations: 130.674 MiB, 0.89% gc time)
+@btime begin a(cuinp2); synchronize() end
+@btime begin a(cuinp3); synchronize() end
+
+@btime begin b(inp1); synchronize() end    # 1.908837 seconds (778.18 k allocations: 36.005 MiB, 0.48% gc time)
+@btime begin b(inp2); synchronize() end
+@btime begin b(inp3); synchronize() end
+
+@btime begin c(cuinp1); synchronize() end
+@btime begin c(cuinp2); synchronize() end
+@btime begin c(cuinp3); synchronize() end
 
 #batchnorm(cu(randn(10,5)))
 
