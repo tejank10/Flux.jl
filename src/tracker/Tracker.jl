@@ -10,6 +10,7 @@ istracked(x) = tracker(x) ≠ nothing
 isleaf(x) = !istracked(x) || isleaf(tracker(x))
 data(x) = istracked(x) ? data(tracker(x)) : x
 grad(x) = grad(tracker(x))
+grad(::Void) = nothing
 
 struct Call{F,As<:Tuple}
   func::F
@@ -45,6 +46,12 @@ istracked(x::Tracked) = true
 isleaf(x::Tracked) = x.f == Call(nothing)
 data(x::Tracked) = x.data
 grad(x::Tracked) = x.grad
+
+function update!(x, Δ)
+  tracker(x).data += Δ
+  tracker(x).grad .= 0
+  return x
+end
 
 include("back.jl")
 include("scalar.jl")
